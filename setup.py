@@ -21,6 +21,9 @@ setup(
     entry_points={
         'console_scripts': [
             'particle_filter = localization_project.particle_filter:main'
+            'occupancy_field = localization_project.occupancy_field:main'
+            'helper_functions = localization_project.helper_functions:main'
+            'angle_helper = localization_project.angle_helper:main'
         ],
     },
 )

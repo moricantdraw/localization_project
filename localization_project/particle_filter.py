@@ -190,13 +190,15 @@ class ParticleFilter(Node):
 
         # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
+        #sort particles based on weights
         sorted_particles = sorted(self.particle_cloud, key=lambda p: p.w, reverse=True)
+        # select the particles that have the highest weightings
         top_particles = sorted_particles[:self.selected_particles]
-
+        #find the mean/average of the x, y and theta in those particles
         self.x = np.average([p.x for p in top_particles])
         self.y= np.average([p.y for p in top_particles])
         self.theta = np.average([p.theta for p in top_particles])
-
+        #set neato's new position
         self.robot_pose = Particle.as_pose(self)
 
         
@@ -226,7 +228,9 @@ class ParticleFilter(Node):
             return
 
         # TODO: modify particles using delta
+        #loop through all particles
         for index in range(self.n_particles):
+            #update particles by moving the particles based on th neato's movements
             self.particle_cloud[index].x += delta[0]
             self.particle_cloud[index].y += delta[1]
             self.particle_cloud[index].theta += delta[2]
@@ -242,14 +246,17 @@ class ParticleFilter(Node):
         self.normalize_particles()
 
         # TODO: fill out the rest of the implementation
+        #make new particles based on their weights
         new_particles = draw_random_sample(self.particle_cloud, [elements.w for elements in self.particle_cloud], self.n_particles)
-        
+        #loop throught my new particles
         for elements in new_particles:
+            #add noise to my particles by replacing them one by one
+            #with a random location based on the normal distribution
             elements.x = np.random.normal(loc=elements.x, scale=self.spread)
             elements.y = np.random.normal(loc=elements.y, scale=self.spread)
             elements.theta = np.random.normal(loc=elements.theta, scale=self.spread)
-            elements.w = 0
-        self.particle_cloud = new_particles 
+            elements.w = 0#change all particle weights back to zero
+        self.particle_cloud = new_particles #replace old particles with new particles
 
 
     def update_particles_with_laser(self, r, theta):
@@ -261,23 +268,31 @@ class ParticleFilter(Node):
         
         for particle in self.particle_cloud:
             for obstacle in range(len(theta)):
+                # laser scan from polar to cartesian
                 x = r[obstacle]*np.cos(theta[obstacle])
-                y = r[obstacle]*np.sin(theta[obstacle])# laser scan from polar to cartesian
+                y = r[obstacle]*np.sin(theta[obstacle])
+                #position matrix of the laserscan
                 pos = np.array([
                     [x],
                     [y]
                 ])
+                #rotational matrix for based on the orientation of each particles
                 rotation = np.array([
                     [np.cos(self.particle_cloud[particle].theta), -np.sin(self.particle_cloud[particle].theta)], 
                     [np.sin(self.particle_cloud[particle].theta), np.cos(self.particle_cloud[particle].theta)]
                 ])
+                #cast laser scans onto particles' orientation
                 casted_laser = rotation@pos
+                #move laser scanned obstacle to the particle's location
                 casted_laser[0,0]+=self.particle_cloud[particle].x
                 casted_laser[1,0]+=self.particle_cloud[particle].y
+                #the distance between the theorhetical laser scan obstacle from the real obstacle
                 error = self.occupancy_field.closest_obstacle_distance(casted_laser[0,0], casted_laser[0,1])
-                #distance from theorhetical obstacles to actual obstacle
+                #filter out the nan
                 if math.isnan(error):
                     self.particle_cloud[particle].w = 0  # Set the weight to 0 if error is NaN
+                #set particle weight based on error, they have an inverse relationship
+                #squaring eliminates all negative distance
                 else:
                     self.particle_cloud[particle].w = 1/(error**2)
 
@@ -298,9 +313,11 @@ class ParticleFilter(Node):
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
         # TODO create particles
+        #create particles based on normal distribution around the initial guess of where the neato is
         particles_x = np.random.normal(loc=xy_theta[0], scale=self.spread, size=self.n_particles)
         particles_y = np.random.normal(loc=xy_theta[1], scale=self.spread, size=self.n_particles)
-        particles_theta = np.random.normal(loc=xy_theta[2], scale=self.spread, size=self.n_particles)
+        particles_theta = np.random.normal(loc=xy_theta[2], scale=self.spread, size=self.n_particles)\
+        #combining x y and theta to make particles
         for index in range(self.n_particles):
             new_particle = Particle(
                 x=particles_x[index],

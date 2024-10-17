@@ -85,7 +85,7 @@ class ParticleFilter(Node):
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
 
         # TODO: define additional constants if needed
-        self.spread = 0.25# sspread of the normal distribution for the particles 
+        self.spread = 0.15# sspread of the normal distribution for the particles 
 
         # pose_listener responds to selection of a new approximate robot location (for instance using rviz)
         self.create_subscription(PoseWithCovarianceStamped, 'initialpose', self.update_initial_pose, 10)
@@ -253,7 +253,7 @@ class ParticleFilter(Node):
         self.normalize_particles()
 
         # TODO: fill out the rest of the implementation
-        print([elements.w for elements in self.particle_cloud])
+        # print([elements.w for elements in self.particle_cloud])
         new_particles = draw_random_sample(self.particle_cloud, [elements.w for elements in self.particle_cloud], self.n_particles)
         
         for elements in new_particles:
@@ -272,7 +272,7 @@ class ParticleFilter(Node):
         # TODO: implement this
 
         for particle in self.particle_cloud:
-            error = 0.0
+            total_error = 0.0
             for obstacle in range(len(theta)):
                 if math.isinf(r[obstacle]) is False:
                     x = r[obstacle]*np.cos(theta[obstacle])
@@ -288,12 +288,14 @@ class ParticleFilter(Node):
                     casted_laser = rotation@pos
                     casted_laser[0,0]+=particle.x
                     casted_laser[1,0]+=particle.y
-                    error += self.occupancy_field.get_closest_obstacle_distance(casted_laser[0,0], casted_laser[1,0])
+                    error = self.occupancy_field.get_closest_obstacle_distance(casted_laser[0,0], casted_laser[1,0])
+                    if math.isnan(error) is False:
+                        total_error += error
                     #distance from theorhetical obstacles to actual obstacle
-            if math.isnan(error):
+            if math.isnan(total_error):
                 particle.w = 0.0  # Set the weight to 0 if error is NaN
             else:
-                particle.w = 1/((error+0.001)**2)
+                particle.w = 1/((total_error+0.001)**2)
          
                 
 
